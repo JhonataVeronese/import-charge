@@ -1,0 +1,569 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../../../../../node_modules/@plin_financial/prisma/client"
+  binaryTargets = ["native", "rhel-openssl-1.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_PLIN_FINANCIAL")
+}
+
+model Company {
+  id        BigInt    @id @unique @default(autoincrement())
+  token     String    @db.VarChar(255)
+  name      String    @db.VarChar(80)
+  email     String    @unique @db.VarChar(80)
+  admin     Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now())
+  deletedAt DateTime?
+}
+
+model OwnerAccount {
+  id                     BigInt                   @id @unique @default(autoincrement())
+  token                  String                   @db.VarChar(80)
+  name                   String                   @db.VarChar(80)
+  email                  String?                  @db.VarChar(80)
+  document               String?                  @db.VarChar(14)
+  documentType           DocumentType?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @default(now())
+  deletedAt              DateTime?
+  valid                  Boolean                  @default(true)
+  accounts               Account[]
+  OwnerAccountConnection OwnerAccountConnection[]
+}
+
+model OwnerAccountConnection {
+  id             BigInt       @id @unique @default(autoincrement())
+  ownerAccountId BigInt
+  dateLastSync   DateTime     @default(now())
+  typeEvent      String       @db.VarChar(200)
+  errorCode      String?      @db.VarChar(200)
+  errorMessage   String?      @db.VarChar(200)
+  createdAt      DateTime     @default(now())
+  ownerAccount   OwnerAccount @relation(fields: [ownerAccountId], references: [id])
+}
+
+model Account {
+  id                         BigInt          @id @unique @default(autoincrement())
+  name                       String?         @db.VarChar(80)
+  bankCode                   String?         @db.VarChar(80)
+  agency                     String?         @db.VarChar(80)
+  dgAgency                   String?         @db.VarChar(80)
+  accountNumber              String?         @db.VarChar(80)
+  dgAccount                  String?         @db.VarChar(80)
+  bankAccountType            String?         @db.VarChar(80)
+  balanceInitial             Decimal?
+  balance                    Decimal?
+  currency                   String?         @db.VarChar(15)
+  connectionUuid             String?
+  ownerAccountId             BigInt?
+  createdAt                  DateTime?       @default(now())
+  updatedAt                  DateTime?       @default(now())
+  deletedAt                  DateTime?
+  externalUuid               String?         @unique
+  uuid                       String
+  lastClosingDate            DateTime?
+  ownerAccount               OwnerAccount?   @relation(fields: [ownerAccountId], references: [id], onDelete: Cascade)
+  AccountSumary              AccountSumary[]
+  destinationAccountReleases Release[]       @relation("destinationAccountReleases")
+  sourceAccountReleases      Release[]       @relation("sourceAccountReleases")
+  statements                 Statement[]
+  transactions               Transaction[]
+  charges                    Charge[]
+  beneficiary                Beneficiary[]
+  receiptConfig              ReceiptConfig?
+}
+
+model AccountSumary {
+  id                BigInt    @id @unique @default(autoincrement())
+  uuid              String    @unique
+  totalReleases     BigInt
+  totalTransactions BigInt
+  totalConciliation BigInt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now())
+  deletedAt         DateTime?
+  accountId         BigInt
+  account           Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model Transaction {
+  id              BigInt          @id @unique @default(autoincrement())
+  uuid            String          @unique
+  value           Decimal
+  currency        String          @db.VarChar(15)
+  accountId       BigInt?
+  externalUuid    String?
+  transactionDate DateTime
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @default(now())
+  deletedAt       DateTime?
+  type            TransactionType
+  statementId     BigInt?
+  description     String?         @db.VarChar(250)
+  fitId           String?         @db.VarChar(250)
+  account         Account?        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  statement       Statement?      @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  conciliations   Conciliation[]
+}
+
+model Release {
+  id                   BigInt               @id @unique @default(autoincrement())
+  uuid                 String               @unique
+  value                Decimal
+  paymentDate          DateTime
+  type                 ReleaseType
+  parcelNumber         Decimal?
+  totalParcel          Decimal?
+  competenceDate       DateTime?
+  invoiceNumber        String?
+  categoryUuid         String?
+  providerUuid         String?
+  coastCenterUuid      String?
+  complement           String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @default(now())
+  deletedAt            DateTime?
+  origin               OriginReleaseType
+  destinationAccountId BigInt?
+  sourceAccountId      BigInt
+  destinationAccount   Account?             @relation("destinationAccountReleases", fields: [destinationAccountId], references: [id])
+  sourceAccount        Account              @relation("sourceAccountReleases", fields: [sourceAccountId], references: [id])
+  chargeId             BigInt?
+  charge               Charge?              @relation(fields: [chargeId], references: [id])
+  conciliations        Conciliation[]
+  attachments          ReleaseAttachments[]
+}
+
+model ReleaseAttachments {
+  id           BigInt    @id @unique @default(autoincrement())
+  name         String    @db.VarChar(255)
+  url          String    @db.VarChar(355)
+  extension    String    @db.VarChar(10)
+  size         Int
+  releaseId    BigInt
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+  category     String?   @db.VarChar(50)
+  uuid         String?   @unique
+  originalName String?   @db.VarChar(200)
+  release      Release   @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+}
+
+model ChargeAttachment {
+  id           BigInt                        @id @unique @default(autoincrement())
+  name         String                        @db.VarChar(255)
+  url          String                        @db.VarChar(355)
+  extension    String                        @db.VarChar(10)
+  size         Int
+  chargeId     BigInt
+  createdAt    DateTime                      @default(now())
+  deletedAt    DateTime?
+  category     ChargeAttachmentCategoryEnum?
+  uuid         String                        @unique
+  originalName String?                       @db.VarChar(200)
+  charge       Charge                        @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+}
+
+model Conciliation {
+  id               BigInt      @id @unique @default(autoincrement())
+  uuid             String      @unique
+  conciliationDate DateTime    @default(now())
+  releaseId        BigInt
+  transactionId    BigInt
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @default(now())
+  deletedAt        DateTime?
+  release          Release     @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  transaction      Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model Statement {
+  id           BigInt        @id @unique @default(autoincrement())
+  uuid         String        @unique
+  name         String        @db.VarChar(200)
+  originalName String        @db.VarChar(200)
+  url          String
+  extension    String        @db.VarChar(5)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @default(now())
+  deletedAt    DateTime?
+  month        Int?
+  year         Int?
+  accountId    BigInt?
+  account      Account?      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  Transaction  Transaction[]
+}
+
+model Agreement {
+  id             BigInt          @id @unique @default(autoincrement())
+  code           String
+  unitUuid       String
+  totalAmount    Decimal
+  netAmount      Decimal
+  advanceAmount  Decimal
+  advanceDueDate DateTime
+  dueDate        DateTime
+  status         AgreementStatus
+  observation    String          @db.VarChar(320)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  AgreementParcel        AgreementParcel[]
+  AgreementConfiguration AgreementConfiguration?
+}
+
+model PaymentMethod {
+  id                     BigInt                   @id @unique @default(autoincrement())
+  name                   String                   @unique @db.VarChar()
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @default(now())
+  deletedAt              DateTime?
+  AgreementConfiguration AgreementConfiguration[]
+  charges                Charge[]
+}
+
+model AgreementParcel {
+  id          BigInt    @id @unique @default(autoincrement())
+  number      String
+  amount      Decimal
+  agreement   Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  agreementId BigInt
+  dueDate     DateTime
+  paid        Boolean
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+  deletedAt   DateTime?
+}
+
+model Fee {
+  id                 BigInt      @id @unique @default(autoincrement())
+  percentage         Decimal
+  installmentsNumber Int
+  expirationDays     Int
+  entranceFee        EntranceFee
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @default(now())
+  deletedAt          DateTime?
+}
+
+model FeeItems {
+  id            BigInt        @id @unique @default(autoincrement())
+  name          String        @db.VarChar(80)
+  percentage    Decimal
+  period        FeeItemPeriod
+  allowDiscount Boolean
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @default(now())
+  deletedAt     DateTime?
+}
+
+model AgreementConfiguration {
+  id                     BigInt        @id @unique @default(autoincrement())
+  beneficiaryAccountUuid String
+  paymentMethod          PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  paymentMethodId        BigInt
+  daysToPayAdvanceAmount Int
+  daysToExpireBill       Int
+  automaticApproval      Boolean
+  agreement              Agreement     @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  agreementId            BigInt        @unique
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @default(now())
+  deletedAt              DateTime?
+}
+
+model Payer {
+  id              BigInt        @id @unique @default(autoincrement())
+  condominiumUuid String
+  unitUuid        String?
+  unitName        String?
+  name            String
+  documentType    DocumentType?
+  document        String?       @db.VarChar(14)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @default(now())
+  deletedAt       DateTime?
+  address         Address[]
+  charge          Charge[]
+}
+
+model Beneficiary {
+  id              BigInt        @id @unique @default(autoincrement())
+  name            String        @db.VarChar(80)
+  document        String?       @db.VarChar(14)
+  documentType    DocumentType?
+  accountId       BigInt
+  companyUuid     String
+  condominiumUuid String?
+  created_at      DateTime
+  updated_at      DateTime
+  deleted_at      DateTime?
+  account         Account       @relation(fields: [accountId], references: [id])
+  address         Address[]
+  charge          Charge[]
+}
+
+model Address {
+  id             BigInt       @id @unique @default(autoincrement())
+  payerId        BigInt?
+  beneficiaryId  BigInt?
+  address        String       @db.VarChar(100)
+  city           String?      @db.VarChar(60)
+  federativeUnit String?      @db.VarChar(3)
+  zipCode        String       @db.VarChar(10)
+  complement     String?      @db.VarChar(30)
+  neighborhood   String?      @db.VarChar(60)
+  areaCode       String?      @db.VarChar(2)
+  cellphone      String?      @db.VarChar(15)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now())
+  deletedAt      DateTime?
+  payer          Payer?       @relation(fields: [payerId], references: [id])
+  beneficiary    Beneficiary? @relation(fields: [beneficiaryId], references: [id])
+}
+
+model Charge {
+  id                            BigInt                @id @unique @default(autoincrement())
+  uuid                          String                @unique
+  accountId                     BigInt
+  paymentMethodId               BigInt
+  payerId                       BigInt
+  beneficiaryId                 BigInt
+  chargeIdOriginal              BigInt?
+  status                        ChargeStatus
+  baseValue                     Decimal
+  finalValue                    Decimal?
+  dueDate                       DateTime
+  liquidateDate                 DateTime?
+  creditDate                    DateTime?
+  competenceDate                DateTime
+  internalId                    BigInt                @unique @default(autoincrement())
+  condominiumUuid               String?
+  companyUuid                   String?
+  extraordinary                 Boolean               @default(false)
+  visualized                    Boolean               @default(false)
+  createdAt                     DateTime              @default(now())
+  updatedAt                     DateTime              @default(now())
+  deletedAt                     DateTime?
+  receiveMethod                 ReceiveMethodEnum?
+  sendReceiptOnLiquidation      Boolean?
+  defaultInterestValue          Decimal?
+  fineValue                     Decimal?
+  applyDiscount                 Boolean?
+  discountValue                 Decimal?
+  amountPayable                 Decimal?
+  finePercentage                Decimal?
+  interestPercentage            Decimal?
+  daysAfterDueDateToDelinquency Decimal?
+  daysAfterDelinquencyToCancel  Decimal?
+  duplicateFee                  Decimal?
+  plinBillsBucketId             String?
+  chargeReIssue                 Boolean               @default(false)
+  pdfUrl                        String?
+  account                       Account               @relation(fields: [accountId], references: [id])
+  paymentMethod                 PaymentMethod         @relation(fields: [paymentMethodId], references: [id])
+  payer                         Payer                 @relation(fields: [payerId], references: [id], onDelete: Cascade)
+  beneficiary                   Beneficiary           @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+  chargeOriginal                Charge?               @relation("chargeOriginal", fields: [chargeIdOriginal], references: [id])
+  chargeOriginalList            Charge[]              @relation("chargeOriginal")
+  chargeBills                   ChargeBill[]
+  releases                      Release[]
+  chargeItems                   ChargeItem[]
+  attachments                   ChargeAttachment[]
+  ChargeError                   ChargeError[]
+  delinquencyDate               DateTime?
+  cancellationDate              DateTime?
+  chargeNotifications           ChargeNotifications[]
+  ourNumber                     String?
+  pixCopyAndPaste               String?
+  barCode                       String?
+}
+
+model ChargeItem {
+  id              BigInt    @id @unique @default(autoincrement())
+  chargeId        BigInt
+  complement      String?   @db.VarChar(200)
+  categoryUuid    String?
+  coastCenterUuid String?
+  amount          Decimal
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+  deletedAt       DateTime?
+  charge          Charge    @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+}
+
+model ChargeBill {
+  id        BigInt    @id @unique @default(autoincrement())
+  billUuid  String?   @unique
+  chargeId  BigInt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now())
+  deletedAt DateTime?
+  charge    Charge    @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+}
+
+model ReceiptConfig {
+  id                            BigInt    @id @unique @default(autoincrement())
+  fineRate                      Decimal
+  defaultInterestMonthRate      Decimal
+  dayOfMonthToDue               Int
+  daysAfterDueDateToDelinquency Int
+  daysAfterDelinquencyToCancel  Int
+  duplicateFee                  Decimal?
+  accountId                     BigInt    @unique
+  createdAt                     DateTime  @default(now())
+  updatedAt                     DateTime  @default(now())
+  deletedAt                     DateTime?
+  pixKey                        String
+  account                       Account   @relation(fields: [accountId], references: [id])
+  uuid                          String    @unique
+  condominiumUuid               String?   @unique
+  companyUuid                   String?   @unique
+}
+
+model ChargeError {
+  id        BigInt    @id @unique @default(autoincrement())
+  message   String
+  chargeId  BigInt
+  charge    Charge    @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now())
+  deletedAt DateTime?
+}
+
+model BilletSettings {
+  id                   Int       @id @default(autoincrement())
+  chargeComposition    Boolean   @default(true)
+  monthlyDemonstration Boolean
+  cashFlow             Boolean
+  monthlyDelinquency   Boolean
+  condominiumUuid      String?   @unique
+  companyUuid          String?   @unique
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now())
+  deletedAt            DateTime?
+}
+
+model ChargeNotificationConfig {
+  id                           BigInt                         @id @unique @default(autoincrement())
+  uuid                         String                         @unique
+  condominiumUuid              String?                        @unique
+  companyUuid                  String?                        @unique
+  message                      String?                        @db.VarChar(1000)
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime                       @default(now())
+  deletedAt                    DateTime?
+  ChargeNotificationConfigItem ChargeNotificationConfigItem[]
+}
+
+model ChargeNotificationConfigItem {
+  id                         BigInt                           @id @unique @default(autoincrement())
+  uuid                       String                           @unique
+  notify                     Boolean
+  interval                   ChargeNotificationConfigInterval
+  daysToNotify               Int                              @default(0)
+  chargeNotificationConfigId BigInt
+  chargeNotificationConfig   ChargeNotificationConfig         @relation(fields: [chargeNotificationConfigId], references: [id], onDelete: Cascade)
+  createdAt                  DateTime                         @default(now())
+  updatedAt                  DateTime                         @default(now())
+  deletedAt                  DateTime?
+  ChargeNotifications        ChargeNotifications[]
+}
+
+model ChargeNotifications {
+  id                             BigInt   @id @unique @default(autoincrement())
+  uuid                           String   @unique
+  chargeId                       BigInt
+  chargeNotificationConfigItemId BigInt
+  notifyDate                     DateTime
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @default(now())
+
+  charge                       Charge                       @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  chargeNotificationConfigItem ChargeNotificationConfigItem @relation(fields: [chargeNotificationConfigItemId], references: [id], onDelete: Cascade)
+}
+
+enum ChargeNotificationConfigInterval {
+  AFTER_EXPIRATION
+  BEFORE_EXPIRATION
+  AT_EXPIRATION
+  WHEN_GENERATED
+}
+
+// CASO ALTERE ESSE ENUM, LEMBRE-SE DE ALTERAR O ChargeStatusEnum.
+enum ChargeStatus {
+  PROCESSANDO
+  A_VENCER
+  VENCIDO
+  PAGO
+  INDISPONIVEL
+  ERRO
+  EXPIRADO //NÃO UTILIZAR - FUNÇÃO DEPRECIADA.
+  INVALIDO
+  INADIMPLENTE
+  INADIMPLENTE_INDISPONIVEL
+}
+
+enum EntranceFee {
+  SEM_ENTRADA
+  TRINTA
+  CINQUENTA
+  ACIMA_CINQUENTA
+  OUTRO
+}
+
+enum AgreementStatus {
+  PENDENTE
+  VIGENTE
+  INADIMPLENTE
+  CONCLUIDO
+  CANCELADO
+}
+
+enum FeeItemPeriod {
+  DIA
+  MES
+  ANO
+}
+
+enum DocumentType {
+  CPF
+  CNPJ
+}
+
+enum TransactionType {
+  CREDITO
+  DEBITO
+}
+
+enum ReleaseType {
+  RECEITA
+  DESPESA
+}
+
+enum OriginReleaseType {
+  MANUAL
+  TRANSFERENCIA
+}
+
+enum ReceiveMethodEnum {
+  CHEQUE
+  PIX
+  TRANSFERENCIA
+  DINHEIRO
+  BOLETO
+}
+
+enum ChargeAttachmentCategoryEnum {
+  OUTRO
+  COMPROVANTE
+}
