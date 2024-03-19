@@ -17,7 +17,7 @@ async function execute() {
   console.log("------------ IMPORTADOR PLIN DE COBRANÇAS -------------");
   console.log("-------------------------------------------------------\n\n");
 
-  console.log("1 - Buscar dados da conta no plin api");
+  console.log("Buscar dados da conta no plin web");
 
   // FAZER A CONSULTA NO FINANCIAL DAS CONTAS, PEGAR O UUID E FAZER A MESMA CONSULTA NO PLIN API USANDO O UUID DAS CONTAS COMO NOT IN E ADICIONAR O FILTRO POR CONTAS Q TEM COBRANÇAS
   const accountPlinAPI = await prismaPlinApi.bankaccount
@@ -58,13 +58,10 @@ async function execute() {
       console.error(error);
     });
 
-  console.log("2 - Validar as contas que não existem no financial");
-  console.log("-------------------------------------------------------\n");
   const accountFinancialAPI = await prismaFinancial.account
     .findMany({ where: { deletedAt: null } })
     .then((accounts) => {
       console.log("Total de contas no financial-api -> ", accounts.length);
-      console.log("-------------------------------------------------------\n");
 
       return accounts.map((accountFinancial) => {
         return accountFinancial.uuid;
@@ -75,16 +72,14 @@ async function execute() {
     });
 
   if (accountPlinAPI) {
-    const accountsToInsert = accountPlinAPI.filter((account) =>
-      accountFinancialAPI?.includes(account.uuid ?? "")
+    const accountsToInsert = accountPlinAPI.filter(
+      (account) => !accountFinancialAPI?.includes(account.uuid ?? "")
     );
 
-    console.log("Contas novas-> ", accountsToInsert?.length);
+    console.log("Contas para insert no financial-> ", accountsToInsert?.length);
     console.log("-------------------------------------------------------\n");
 
-    console.log(
-      "Executando etapa 3 - Gerar script de inserção das novas contas"
-    );
+    console.log("Gerar script de inserção das novas contas");
     console.log("-------------------------------------------------------\n");
     const insertsAccounts: string[] = [];
 
@@ -129,7 +124,7 @@ async function execute() {
   }
 
   console.log("-------------------------------------------------------\n");
-  console.log("1 - Buscando dados de cobrança");
+  console.log("1 - Buscando dados de cobrança no plin web");
 
   const currentDate = new Date();
   const billsPlinAPI = await prismaPlinApi.bills
@@ -387,7 +382,9 @@ async function execute() {
       console.error(error);
     });
 
-  // console.log("teste-->", billsPlinAPI);
+  console.log("Gerar script de inserção de cobranças");
+  console.log("-------------------------------------------------------\n");
+  const insertsAccounts: string[] = [];
   const insertsCharges: string[] = [];
 
   billsPlinAPI?.forEach((chargeInsert) => {
@@ -576,6 +573,8 @@ async function execute() {
 
   const insertsChargesItems: string[] = [];
 
+  console.log("Gerar script de inserção de itens das cobranças");
+  console.log("-------------------------------------------------------\n");
   billsPlinAPI?.forEach((chargeInsert) => {
     const insertChargeItems = chargeInsert.chargeItems
       .map((item) => {
@@ -614,6 +613,9 @@ async function execute() {
 
   console.log("-------------------------------------------------------\n");
   console.log("IMPORTADOR PLIN FIM");
+  console.log(
+    "Executar os scripts gerados no banco de dados em ordem - conta -> cobrança -> itens de cobrança"
+  );
   console.log("-------------------------------------------------------\n");
 }
 
