@@ -242,30 +242,10 @@ async function execute() {
             unitName: `${`${unit?.name} ${
               unit?.blocks ? ` - ${unit?.blocks?.name}` : ""
             }`}`,
-
             condominium: {
               uuid: charge.condominiums?.uuid ?? undefined,
               name: charge.condominiums?.name ?? undefined,
             },
-
-            // address: {
-            //   address: address?.address
-            //     ? address?.address.substring(0, 100)
-            //     : "",
-            //   city: address?.cities?.name
-            //     ? address?.cities?.name.substring(0, 60)
-            //     : "",
-            //   complement: address?.complement
-            //     ? address?.complement.substring(0, 30)
-            //     : "",
-            //   neighborhood: unit?.neighborhood
-            //     ? unit?.neighborhood.substring(0, 60)
-            //     : "",
-            //   federativeUnit: address?.cities?.states.initials ?? "",
-            //   zipCode: address?.zipcode
-            //     ? address.zipcode.replace(/[^0-9]/g, "")
-            //     : "",
-            // },
           };
         }
 
@@ -282,24 +262,6 @@ async function execute() {
             beneficiaryName: charge.condominiums?.name
               ? charge.condominiums?.name.substring(0, 80)
               : "",
-            // address: {
-            //   address: charge.condominiums?.address
-            //     ? charge.condominiums?.address.substring(0, 100)
-            //     : "",
-            //   city: charge.condominiums?.city
-            //     ? charge.condominiums?.city.substring(0, 60)
-            //     : "",
-            //   complement: charge.condominiums?.complement
-            //     ? charge.condominiums?.complement.substring(0, 30)
-            //     : "",
-            //   neighborhood: charge.condominiums?.neighborhood
-            //     ? charge.condominiums?.neighborhood.substring(0, 60)
-            //     : "",
-            //   federativeUnit: charge.condominiums?.state ?? "",
-            //   zipCode: charge.condominiums?.cep
-            //     ? String(charge.condominiums?.cep)
-            //     : "",
-            // },
           };
         }
 
@@ -322,6 +284,7 @@ async function execute() {
           uuid: charge.uuid,
           companyUuid: charge.companies?.uuid,
           condominiumUuid: charge.condominiums?.uuid,
+          plinBillsBucketId: charge.condominiums?.bills_bucket_id,
 
           accountCharge,
           unitPayerModel,
@@ -329,12 +292,7 @@ async function execute() {
           chargeItems,
 
           ChargeBillModel: {
-            createdAt: charge.created_at
-              ? format(charge.created_at, "yyyy-MM-dd")
-              : null,
-            updatedAt: charge.updated_at
-              ? format(charge.updated_at, "yyyy-MM-dd")
-              : null,
+            billUuid: charge.plin_boletos_id,
           },
 
           status,
@@ -406,9 +364,9 @@ async function execute() {
     "unitName")
   values(
     ${`nextval('"Payer_id_seq"'::regclass)`},
-    '${chargeInsert.unitPayerModel?.condominium.uuid}',
-    '${chargeInsert.unitPayerModel?.uuid}',
-    '${chargeInsert.unitPayerModel?.payerName}',
+    '${chargeInsert.unitPayerModel?.condominium.uuid ?? null}',
+    '${chargeInsert.unitPayerModel?.uuid ?? null}',
+    '${chargeInsert.unitPayerModel?.payerName ?? null}',
     ${
       chargeInsert.unitPayerModel?.documentType
         ? `'${chargeInsert.unitPayerModel?.documentType}'`
@@ -422,7 +380,7 @@ async function execute() {
     CURRENT_DATE,
     CURRENT_DATE,
     null,
-    '${chargeInsert.unitPayerModel?.unitName}'
+    '${chargeInsert.unitPayerModel?.unitName ?? null}'
   );
   
 
@@ -533,8 +491,10 @@ async function execute() {
     '${chargeInsert.updatedAt}',
     null,
     --null,
-    '${chargeInsert.companyUuid}',
-    '${chargeInsert.condominiumUuid}',
+    ${chargeInsert.companyUuid ? `'${chargeInsert.companyUuid}'` : null},
+    ${
+      chargeInsert.condominiumUuid ? `'${chargeInsert.condominiumUuid}'` : null
+    },
     '${chargeInsert.receiveMethod}',
     null,
     ${chargeInsert.defaultInterestValue},
@@ -555,6 +515,19 @@ async function execute() {
     '${chargeInsert.ourNumber}',
     null,
     ${chargeInsert.pdfUrl ? `'${chargeInsert.pdfUrl}'` : null}
+  );
+
+
+  insert into public."ChargeBill"
+    (id, "billUuid", "chargeId")
+  values(
+    ${`nextval('"ChargeBill_id_seq"'::regclass)`},
+    ${
+      chargeInsert.ChargeBillModel.billUuid
+        ? `'${chargeInsert.ChargeBillModel.billUuid}'`
+        : null
+    },
+    (select id from public."Charge" where uuid = '${chargeInsert.uuid}')
   );
 
   COMMIT;
