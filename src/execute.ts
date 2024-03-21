@@ -45,8 +45,12 @@ async function execute() {
           currency: "BRL",
           connectionUuid: null,
           ownerAccountId: undefined,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: accountPlin.created_at
+            ? format(accountPlin.created_at, "yyyy-MM-dd")
+            : null,
+          updatedAt: accountPlin.updated_at
+            ? format(accountPlin.updated_at, "yyyy-MM-dd")
+            : null,
           deletedAt: accountPlin.deleted_at
             ? format(accountPlin.deleted_at, "yyyy-MM-dd")
             : null,
