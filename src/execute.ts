@@ -31,7 +31,7 @@ async function execute() {
 
       return accounts.map((accountPlin) => {
         return {
-          name: accountPlin.name ?? null,
+          name: accountPlin.name?.substring(0, 80) ?? null,
           bankCode: accountPlin.bank ?? null,
           agency: accountPlin.agency ?? null,
           dgAgency: accountPlin.dg_agency ?? null,
