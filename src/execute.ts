@@ -47,8 +47,10 @@ async function execute() {
           ownerAccountId: undefined,
           createdAt: new Date(),
           updatedAt: new Date(),
-          deletedAt: null ?? null,
-          externalUuid: null ?? null,
+          deletedAt: accountPlin.deleted_at
+            ? format(accountPlin.deleted_at, "yyyy-MM-dd")
+            : null,
+          externalUuid: null,
           uuid: accountPlin.uuid,
           lastClosingDate: null,
         } as AccountPlinWebModel;
