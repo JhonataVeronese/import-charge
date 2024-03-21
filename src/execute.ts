@@ -282,7 +282,7 @@ async function execute() {
 
         return {
           uuid: charge.uuid,
-          companyUuid: charge.companies?.uuid,
+          companyUuid: null,
           condominiumUuid: charge.condominiums?.uuid,
           plinBillsBucketId: charge.condominiums?.bills_bucket_id,
 
