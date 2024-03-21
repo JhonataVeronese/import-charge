@@ -21,7 +21,7 @@ async function execute() {
 
   // FAZER A CONSULTA NO FINANCIAL DAS CONTAS, PEGAR O UUID E FAZER A MESMA CONSULTA NO PLIN API USANDO O UUID DAS CONTAS COMO NOT IN E ADICIONAR O FILTRO POR CONTAS Q TEM COBRANÇAS
   const accountPlinAPI = await prismaPlinApi.bankaccount
-    .findMany({ where: { deleted_at: null } })
+    .findMany()
     .then((accounts) => {
       console.log(
         "Total de contas encontradas no plin web-> ",
