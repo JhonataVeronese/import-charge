@@ -136,7 +136,7 @@ async function execute() {
   const billsPlinAPI = await prismaPlinApi.bills
     .findMany({
       include: {
-        bankaccount: true,
+        bankaccount: { include: { monetary: true } },
         billings: {
           include: {
             billing_items: { include: { plan_account_categories: true } },
@@ -286,6 +286,18 @@ async function execute() {
           });
         }
 
+        charge.bankaccount?.monetary?.sort((a, b) => {
+          if (a.created_at && b.created_at) {
+            return a.created_at.getTime() - b.created_at.getTime();
+          }
+          return 0;
+        });
+
+        const configBankAccount = charge.bankaccount?.monetary[0]
+          ?.days_for_inadiplency
+          ? charge.bankaccount?.monetary[0]?.days_for_inadiplency
+          : 0;
+
         return {
           uuid: charge.uuid,
           companyUuid: null,
@@ -330,6 +342,9 @@ async function execute() {
           ourNumber: charge.nosso_numero,
           pixCopyAndPaste: charge.pix_copy_and_paste,
 
+          daysAfterDelinquencyToCancel: configBankAccount ?? 0,
+          daysAfterDueDateToDelinquency: configBankAccount ?? 0,
+
           createdAt: charge.created_at
             ? format(charge.created_at, "yyyy-MM-dd")
             : null,
@@ -348,7 +363,6 @@ async function execute() {
 
   console.log("Gerar script de inserção de cobranças");
   console.log("-------------------------------------------------------\n");
-  const insertsAccounts: string[] = [];
   const insertsCharges: string[] = [];
 
   billsPlinAPI?.forEach((chargeInsert) => {
