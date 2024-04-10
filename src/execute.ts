@@ -8,7 +8,7 @@ import {
   ReceiveMethodEnum,
 } from "./models/models";
 import { randomUUID } from "crypto";
-import { format } from "date-fns";
+import { add, format } from "date-fns";
 
 async function execute() {
   const prismaPlinApi = prismaPlinCondominiums();
@@ -191,6 +191,7 @@ async function execute() {
           },
         },
       },
+      where: { deleted_at: null },
     })
     .then((bills) => {
       console.log("Cobranças encontradas-> ", bills.length);
@@ -245,14 +246,15 @@ async function execute() {
 
           unitPayerModel = {
             uuid: unit?.uuid,
-            payerName: unit?.unit_owners[0]?.profiles?.name ?? "",
+            payerName:
+              unit?.unit_owners[0]?.profiles?.name ?? "-Sem nome de pagador-",
             document: documentPayer,
             documentType: documentPayer?.length === 11 ? "CPF" : "CNPJ",
             unitName: `${`${unit?.name} ${
               unit?.blocks ? ` - ${unit?.blocks?.name}` : ""
             }`}`,
             condominium: {
-              uuid: charge.condominiums?.uuid ?? undefined,
+              uuid: charge.condominiums?.uuid,
               name: charge.condominiums?.name ?? undefined,
             },
           };
@@ -342,20 +344,27 @@ async function execute() {
           fineValue: charge.multa,
 
           pdfUrl: charge.url,
+          barCode: charge.bar_code,
           ourNumber: charge.nosso_numero,
           pixCopyAndPaste: charge.pix_copy_and_paste,
 
           daysAfterDelinquencyToCancel: configBankAccount ?? 0,
           daysAfterDueDateToDelinquency: configBankAccount ?? 0,
 
+          delinquencyDate: format(
+            add(charge.data_vencimento, {
+              days: configBankAccount ?? 0,
+            }),
+            "yyyy-MM-dd"
+          ),
+          cancellationDate: format(
+            add(charge.data_vencimento, {
+              days: configBankAccount ?? 0,
+            }),
+            "yyyy-MM-dd"
+          ),
           createdAt: charge.created_at
             ? format(charge.created_at, "yyyy-MM-dd")
-            : null,
-          updatedAt: charge.updated_at
-            ? format(charge.updated_at, "yyyy-MM-dd")
-            : null,
-          deletedAt: charge.deleted_at
-            ? format(charge.deleted_at, "yyyy-MM-dd")
             : null,
         };
       });
@@ -371,7 +380,7 @@ async function execute() {
   billsPlinAPI?.forEach((chargeInsert) => {
     const insertCharge = `    
     -------------------------------------------- Início da transação
-    Rollback;
+    
     BEGIN TRANSACTION;
 
     insert into public."Payer"
@@ -387,9 +396,19 @@ async function execute() {
     "unitName")
   values(
     ${`nextval('"Payer_id_seq"'::regclass)`},
-    '${chargeInsert.unitPayerModel?.condominium.uuid ?? null}',
-    '${chargeInsert.unitPayerModel?.uuid ?? null}',
-    '${chargeInsert.unitPayerModel?.payerName ?? null}',
+    ${
+      chargeInsert.condominiumUuid ? `'${chargeInsert.condominiumUuid}'` : null
+    },
+    ${
+      chargeInsert.unitPayerModel?.uuid
+        ? `'${chargeInsert.unitPayerModel?.uuid}'`
+        : null
+    },
+    ${
+      chargeInsert.unitPayerModel?.payerName
+        ? `'${chargeInsert.unitPayerModel?.payerName}'`
+        : '"-Sem nome de pagador-"'
+    },
     ${
       chargeInsert.unitPayerModel?.documentType
         ? `'${chargeInsert.unitPayerModel?.documentType}'`
@@ -511,7 +530,7 @@ async function execute() {
     false,
     false,
     '${chargeInsert.createdAt}',
-    '${chargeInsert.updatedAt}',
+    CURRENT_DATE,
     null,
     --null,
     ${chargeInsert.companyUuid ? `'${chargeInsert.companyUuid}'` : null},
@@ -525,19 +544,29 @@ async function execute() {
     ${chargeInsert.fineValue},
     null,
     ${chargeInsert.amountPayable},
+    ${
+      chargeInsert.plinBillsBucketId
+        ? `'${chargeInsert.plinBillsBucketId}'`
+        : null
+    },
+    ${chargeInsert.daysAfterDelinquencyToCancel},
+    ${chargeInsert.daysAfterDueDateToDelinquency},
     null,
     null,
-    null,
-    null,
-    null,
-    null,
+    null,D
     false,
-    null,
-    null,
-    null,
+    ${chargeInsert.pdfUrl ? `'${chargeInsert.pdfUrl}'` : null},
+    ${
+      chargeInsert.cancellationDate
+        ? `'${chargeInsert.cancellationDate}'`
+        : null
+    },
+    ${
+      chargeInsert.delinquencyDate ? `'${chargeInsert.delinquencyDate}'` : null
+    },
     '${chargeInsert.ourNumber}',
-    null,
-    ${chargeInsert.pdfUrl ? `'${chargeInsert.pdfUrl}'` : null}
+    ${chargeInsert.barCode ? `'${chargeInsert.barCode}'` : null},
+    ${chargeInsert.pixCopyAndPaste ? `'${chargeInsert.pixCopyAndPaste}'` : null}
   );
 
 
